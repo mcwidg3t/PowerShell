@@ -5,7 +5,7 @@
 # Last Edit: 17/04/2015
 #
 
-$servers = "STIMD245", "STIMD181", "STIMD-FS01", "INVMD220", "SMOMD245", "SMOMD464"
+$servers = @("list", "of", "servers")
 $daystocheck = 7
 
 #region CheckShadowCopies
@@ -64,8 +64,8 @@ No parameters required.  Run the script to return the content of the various bac
 #region Generate Report
 # Everything below here for HTML report
 $date = Get-Date
-$logo = '\\stimd245\computing\network team\norbord_logo.gif'
-$logoforemail = '<img src="cid:norbord_logo.gif">'
+$logo = '\\path\to\\logo.png'
+$logoforemail = '<img src="cid:logo.png">'
 $heading = "Shadow Copy Report - " + $date
 $beginning = {
  @'
@@ -125,7 +125,7 @@ $process = {
 $end = {
 @'
     </table>
-    <h3>This reports runs as a scheduled task on STIMD391</h3>
+    <h3>This reports runs as a scheduled task on <servername></h3>
     </html>
     </body>
 '@
@@ -142,13 +142,12 @@ $shadowcopylist | Sort Server, Date -Descending | ForEach-Object -Begin $beginni
 
 
 #region Send email
-#$toaddress = 'cowienetworkteam@norbord.net'
-$toaddress = "andrew.mcknight@norbord.net", "mark.angel@norbord.net" # testing address
-$fromaddress = 'stimd391@norbord.net'
+$toaddress = "to@address.com""
+$fromaddress = '<sendingserver>@address.com'
 $shortdate = Get-Date -format d
 $subject = "Shadow Copy Report for " + $shortdate
 [string]$body = Get-Content $path
-$smtpserver = 'clearswift.norbord.net'
+$smtpserver = 'smtpserver.com'
 Send-Mailmessage -to $toaddress -from $fromaddress -subject $subject -BodyAsHtml -body $body -smtpServer $smtpserver -Attachments $logo
 
 #endregion Send Email
