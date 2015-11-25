@@ -7,7 +7,7 @@ Last Edit: 25/11/2015
 Function Get-DellWarranty {
 <# 
 .SYNOPSIS
-    Returns warranty details for a Service Tag or an array of Service Tags
+    Returns warranty details for a single Service Tag or an array of Service Tags
 
 .DESCRIPTION
     Get-DellWarranty takes a Service Tag or an array of Service Tags and queries the Dell API for the warranties associated with that tag. 
