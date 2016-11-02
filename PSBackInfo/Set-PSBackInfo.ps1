@@ -32,19 +32,56 @@ function Set-Wallpaper {
     [Win32.Wallpaper]::SetWallpaper($filename)
 }
 
+function Get-SystemInfo {
+    param(
+        [Switch]$Hostname,
+        [Switch]$Description,
+        [Switch]$OS,
+        [Switch]$Username,
+        [Switch]$IPAddress
+    )
+
+    $props = @{}
+
+    if ($Hostname) {
+        $wmiCS = Get-CIMInstance Win32_ComputerSystem
+        $props.Add("hostname", $wmiCS.Name)
+    }
+    if ($os -or $Description) {
+        $wmiOS = Get-CimInstance Win32_OperatingSystem
+        if ($os) {
+            $props.Add("os", $wmiOS.Caption)
+        }
+        if ($Description) {
+            $props.Add("description", $wmiOS.Description)
+        }
+    }
+
+    if ($Username) {
+        $loggonOnUser = (Get-Item Env:\USERDOMAIN).Value + '\' + (Get-Item Env:\USERNAME).Value
+        $props.Add("username", $loggonOnUser)
+    }
+
+    if ($IPAddress) {
+        $ipList = Get-NetIPAddress | Where-Object {($_.addressstate -eq 'preferred') -and ($_.AddressFamily -eq 'IPv4') -and ($_.InterfaceAlias -notlike '*loopback*')} | Select -ExpandProperty ipaddress
+        $ipAddresses = $ipList -join ', '
+        $props.Add("ipaddresses", $ipAddresses)
+    }
+
+    $obj = New-Object -TypeName PSCustomObject -Property $props
+    $obj
+}
+
 function Create-Wallpaper {
     [CmdletBinding()]
     Param(
-        [String]$Hostname,
-        [String]$Description,
-        [String]$Username,
-        [String]$OS,
-        [String]$IPAddresses
+        [psobject]$systeminfo
      )
     Add-Type -AssemblyName System.Drawing
 
+    $numRows = ($systeminfo.psobject.properties | measure-object | select -expandproperty count)+1
     $filename = "$home\Pictures\wallpaper.png" 
-    $bmp = New-Object System.Drawing.Bitmap 500,120
+    $bmp = New-Object System.Drawing.Bitmap 500,($numRows*20)
     $bold = [System.Drawing.FontStyle]::Bold 
     $HeaderFont = new-object System.Drawing.Font Consolas,20,$bold
     $DescFont = new-object System.Drawing.Font Consolas,11,$bold
@@ -58,48 +95,44 @@ function Create-Wallpaper {
     $brushFgLightGray = [System.Drawing.Brushes]::LightGray 
     $graphics = [System.Drawing.Graphics]::FromImage($bmp) 
     
-    $HeaderRectangle = New-Object System.Drawing.RectangleF(0,0,$bmp.Width,(($bmp.Height/6)*2))
-    $graphics.FillRectangle($brushBgBlack,$HeaderRectangle)
-    $graphics.DrawString($Hostname,$HeaderFont,$brushFgWhite,$HeaderRectangle,$sf)
+    $HostnameRectangle = New-Object System.Drawing.RectangleF(0,0,$bmp.Width,(($bmp.Height/$numRows)*2))
+    $graphics.FillRectangle($brushBgBlack,$HostnameRectangle)
+    $graphics.DrawString($systeminfo.hostname,$HeaderFont,$brushFgWhite,$HostnameRectangle,$sf)
+    $currentRow = 2
     
-    $DescRectangle = New-Object System.Drawing.RectangleF(0,(($bmp.Height/6)*2),$bmp.Width,($bmp.Height/6))
-    $graphics.FillRectangle($brushBgBlack,$DescRectangle)
-    $graphics.DrawString($Description,$DescFont,$brushFgLightGray,$DescRectangle,$sf)
+    if ($systeminfo.description) {
+        $DescRectangle = New-Object System.Drawing.RectangleF(0,(($bmp.Height/$numRows)*$currentRow),$bmp.Width,($bmp.Height/$numRows))
+        $graphics.FillRectangle($brushBgBlack,$DescRectangle)
+        $graphics.DrawString($systeminfo.description,$DescFont,$brushFgLightGray,$DescRectangle,$sf)
+        $currentRow++
+    }
 
-    $UserRectangle = New-Object System.Drawing.RectangleF(0,(($bmp.Height/6)*3),$bmp.Width,($bmp.Height/6))
-    $graphics.FillRectangle($brushBgBlack,$UserRectangle)
-    $UserText = $Username
-    $graphics.DrawString($Usertext,$font,$brushFgLightGray,$UserRectangle,$sf)
+    if ($systeminfo.username) {
+        $UserRectangle = New-Object System.Drawing.RectangleF(0,(($bmp.Height/$numRows)*$currentRow),$bmp.Width,($bmp.Height/$numRows))
+        $graphics.FillRectangle($brushBgBlack,$UserRectangle)
+        $graphics.DrawString($systeminfo.username,$font,$brushFgLightGray,$UserRectangle,$sf)
+        $currentRow++
+    }
 
-    $OSRectangle = New-Object System.Drawing.RectangleF(0,(($bmp.Height/6)*4),$bmp.Width,($bmp.Height/6))
-    $graphics.FillRectangle($brushBgBlack,$OSRectangle)
-    $OSText = $OS
-    $graphics.DrawString($OStext,$font,$brushFgLightGray,$OSRectangle,$sf)
-      
-    $IPRectangle = New-Object System.Drawing.RectangleF(0,(($bmp.Height/6)*5),$bmp.Width,($bmp.Height/6))
-    $graphics.FillRectangle($brushBgBlack,$IPRectangle)
-    $graphics.DrawString($IPAddresses,$font,$brushFgLightGray,$IPRectangle,$sf)
+    if ($systeminfo.os) {
+        $OSRectangle = New-Object System.Drawing.RectangleF(0,(($bmp.Height/$numRows)*$currentRow),$bmp.Width,($bmp.Height/$numRows))
+        $graphics.FillRectangle($brushBgBlack,$OSRectangle)
+        $graphics.DrawString($systeminfo.os,$font,$brushFgLightGray,$OSRectangle,$sf)
+        $currentRow++
+    }
+
+    if ($systeminfo.ipaddresses) {  
+        $IPRectangle = New-Object System.Drawing.RectangleF(0,(($bmp.Height/$numRows)*$currentRow),$bmp.Width,($bmp.Height/$numRows))
+        $graphics.FillRectangle($brushBgBlack,$IPRectangle)
+        $graphics.DrawString($systeminfo.ipaddresses,$font,$brushFgLightGray,$IPRectangle,$sf)
+        $currentRow++
+    }
 
     $graphics.Dispose() 
     $bmp.Save($filename)
     $filename 
 }
 
-function Get-SystemInfo {
-    $cs = Get-CIMInstance Win32_ComputerSystem
-    $os = Get-CimInstance Win32_OperatingSystem
-    $username = (Get-Item Env:\USERDOMAIN).Value + '\' + (Get-Item Env:\USERNAME).Value
-    $ipList = Get-NetIPAddress | Where-Object {($_.addressstate -eq 'preferred') -and ($_.AddressFamily -eq 'IPv4') -and ($_.InterfaceAlias -notlike '*loopback*')} | Select -ExpandProperty ipaddress
-    $ipAddresses = $ipList -join ', '
-    $obj = New-Object -TypeName PSCustomObject -Property @{hostname = $cs.Name;
-                                                          description = $os.Description;
-                                                          username = $username;
-                                                          ipaddresses = $ipAddresses;
-                                                          os = $os.Caption}
-
-    $obj
-}
-
-$systeminfo = Get-SystemInfo
-$filename = Create-Wallpaper -Hostname $systeminfo.hostname -Description $systeminfo.description -Username $systeminfo.username -OS $systeminfo.os -IPAddresses $systeminfo.ipaddresses
+$systeminfo = Get-SystemInfo -Hostname -Description -OS -Username -IPAddress
+$filename = Create-Wallpaper -systeminfo $systeminfo 
 Set-Wallpaper -Filename $filename
