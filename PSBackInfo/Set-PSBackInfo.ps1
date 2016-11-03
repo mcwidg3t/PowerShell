@@ -133,6 +133,6 @@ function Create-Wallpaper {
     $filename 
 }
 
-$systeminfo = Get-SystemInfo -Hostname -Description -OS -Username -IPAddress
+$systeminfo = Get-SystemInfo -Hostname -Username -Description -OS -IPAddress
 $filename = Create-Wallpaper -systeminfo $systeminfo 
 Set-Wallpaper -Filename $filename
