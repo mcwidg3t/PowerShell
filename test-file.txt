@@ -1,5 +1,0 @@
-test sync to github
-More changes to sync.
-and more
-blah blah
-and again
